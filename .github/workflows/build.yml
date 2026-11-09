@@ -15,10 +15,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Select Xcode version
+    - name: Check Xcode & iOS SDK info
       run: |
-        sudo xcode-select -s /Applications/Xcode_15.0.app/Contents/Developer
         xcodebuild -version
+        xcrun --show-sdk-path --sdk iphoneos
     
     - name: Compile espscan.dylib
       run: |
@@ -38,14 +38,17 @@ jobs:
     
     - name: Verify build
       run: |
+        echo "=== File Info ==="
         file espscan.dylib
+        echo "=== Linked Libraries ==="
         otool -L espscan.dylib
+        echo "=== File Size ==="
         ls -lh espscan.dylib
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: espscan-dylib
+        name: espscan-dylib-arm64
         path: espscan.dylib
         retention-days: 30
 
@@ -58,11 +61,12 @@ jobs:
     - name: Download artifact
       uses: actions/download-artifact@v4
       with:
-        name: espscan-dylib
+        name: espscan-dylib-arm64
     
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: espscan.dylib
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
