@@ -1,0 +1,68 @@
+name: Build ESPScan Dylib
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Select Xcode version
+      run: |
+        sudo xcode-select -s /Applications/Xcode_15.0.app/Contents/Developer
+        xcodebuild -version
+    
+    - name: Compile espscan.dylib
+      run: |
+        xcrun -sdk iphoneos clang \
+          -arch arm64 \
+          -dynamiclib \
+          -fobjc-arc \
+          -miphoneos-version-min=14.0 \
+          -O2 \
+          -framework UIKit \
+          -framework Foundation \
+          -framework CoreGraphics \
+          -Wno-deprecated-declarations \
+          -o espscan.dylib \
+          espscan.m \
+          -install_name @executable_path/Frameworks/espscan.dylib
+    
+    - name: Verify build
+      run: |
+        file espscan.dylib
+        otool -L espscan.dylib
+        ls -lh espscan.dylib
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: espscan-dylib
+        path: espscan.dylib
+        retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: espscan-dylib
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: espscan.dylib
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
