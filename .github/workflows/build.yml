@@ -1,72 +1,27 @@
-name: Build ESPScan Dylib
-
+name: Build dylib
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Check Xcode & iOS SDK info
-      run: |
-        xcodebuild -version
-        xcrun --show-sdk-path --sdk iphoneos
-    
-    - name: Compile espscan.dylib
-      run: |
-        xcrun -sdk iphoneos clang \
-          -arch arm64 \
-          -dynamiclib \
-          -fobjc-arc \
-          -miphoneos-version-min=14.0 \
-          -O2 \
-          -framework UIKit \
-          -framework Foundation \
-          -framework CoreGraphics \
-          -Wno-deprecated-declarations \
-          -o espscan.dylib \
-          espscan.m \
-          -install_name @executable_path/Frameworks/espscan.dylib
-    
-    - name: Verify build
-      run: |
-        echo "=== File Info ==="
-        file espscan.dylib
-        echo "=== Linked Libraries ==="
-        otool -L espscan.dylib
-        echo "=== File Size ==="
-        ls -lh espscan.dylib
-    
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: espscan-dylib-arm64
-        path: espscan.dylib
-        retention-days: 30
+      - uses: actions/checkout@v4
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    
-    steps:
-    - name: Download artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: espscan-dylib-arm64
-    
-    - name: Create Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: espscan.dylib
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compile OffsetDumper.dylib
+        run: |
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          mkdir -p build
+          xcrun clang++ -arch arm64 -isysroot "$SDK" -miphoneos-version-min=13.0 \
+            -dynamiclib -fobjc-arc -std=c++17 -O2 \
+            -framework Foundation -framework UIKit \
+            -install_name @executable_path/Frameworks/OffsetDumper.dylib \
+            Dumper.mm Entry.mm -o build/OffsetDumper.dylib
+          codesign -f -s - build/OffsetDumper.dylib
+          file build/OffsetDumper.dylib
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OffsetDumper
+          path: build/OffsetDumper.dylib
